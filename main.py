@@ -191,8 +191,10 @@ class Task(QWidget):
         titleFont.setBold(True)
         titleLbl.setFont(titleFont)
         if(endT >= now and act == 1):
-            titleLbl.setStyleSheet("color: red;")
+            titleLbl.setStyleSheet("color: orange;")
         elif(endT < now and act == 1):
+            titleLbl.setStyleSheet("color: red;")
+        elif(act == 0):
             titleLbl.setStyleSheet("color: green;")
         descriptioLbl = QLabel(str(d))
         self.startTime = startT
@@ -278,6 +280,7 @@ class Task(QWidget):
                 now = datetime.datetime.now()
                 time = now.strftime("%Y-%m-%d %H:%M:%S")
                 cursor.execute('UPDATE tasks SET end_time = ? WHERE id = ?', (time,self.id))
+                cursor.execute('UPDATE tasks SET active = ? WHERE id = ?', (0,self.id))
 
                 conn.commit()
 

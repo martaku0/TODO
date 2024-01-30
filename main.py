@@ -7,13 +7,15 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QLabel,
                                QVBoxLayout, QHBoxLayout, QWidget, QPushButton,
                                QScrollArea, QDialog, QDialogButtonBox, QLineEdit,
                                QMessageBox, QDateTimeEdit, QCalendarWidget, QTimeEdit)
-from PySide6.QtCore import QSize, Qt, QTimer, QTime, QDateTime
+from PySide6.QtCore import QSize, Qt, QTimer, QTime, QDateTime, QDate
 from PySide6.QtGui import QFont, QPalette
 
 class AddNewTaskDialog(QDialog):
     def __init__(self, tNow, windowTitle, defaultTitle, defaultDescription):
         super().__init__()
         self.setWindowTitle(windowTitle)
+
+        curr_date = datetime.datetime.strptime(tNow, "%Y-%m-%d %H:%M:%S")
 
         buttons = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         self.buttonBox = QDialogButtonBox(buttons)
@@ -38,11 +40,16 @@ class AddNewTaskDialog(QDialog):
         self.layout.addWidget(endTimeLabel)
 
         self.endData = QCalendarWidget()
+        day = (int)(curr_date.day)
+        month = (int)(curr_date.month)
+        year = (int)(curr_date.year)
+        date = QDate(year, month, day)
+        self.endData.setSelectedDate(date)
         self.layout.addWidget(self.endData)
 
         self.endTime = QTimeEdit()
-        hour = (int)(datetime.datetime.now().hour)
-        min = (int)(datetime.datetime.now().minute)
+        hour = (int)(curr_date.hour)
+        min = (int)(curr_date.minute)
         initial_time = QTime(hour, min)
         self.endTime.setTime(initial_time)
 

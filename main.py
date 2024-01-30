@@ -6,14 +6,14 @@ from functools import partial
 from PySide6.QtWidgets import (QApplication, QMainWindow, QLabel,
                                QVBoxLayout, QHBoxLayout, QWidget, QPushButton,
                                QScrollArea, QDialog, QDialogButtonBox, QLineEdit,
-                               QMessageBox, QDateTimeEdit)
-from PySide6.QtCore import QSize, Qt, QTimer
+                               QMessageBox, QDateTimeEdit, QCalendarWidget, QTimeEdit)
+from PySide6.QtCore import QSize, Qt, QTimer, QTime, QDateTime
 from PySide6.QtGui import QFont, QPalette
 
 class AddNewTaskDialog(QDialog):
-    def __init__(self, tNow):
+    def __init__(self, tNow, windowTitle, defaultTitle, defaultDescription):
         super().__init__()
-        self.setWindowTitle('Add New Task')
+        self.setWindowTitle(windowTitle)
 
         buttons = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         self.buttonBox = QDialogButtonBox(buttons)
@@ -25,20 +25,27 @@ class AddNewTaskDialog(QDialog):
         titleLabel = QLabel('Title:')
         self.layout.addWidget(titleLabel)
         self.title = QLineEdit()
+        self.title.setText(defaultTitle)
         self.layout.addWidget(self.title)
 
         descriptionLabel = QLabel("Description:")
         self.layout.addWidget(descriptionLabel)
         self.description = QLineEdit()
+        self.description.setText(defaultDescription)
         self.layout.addWidget(self.description)
 
         endTimeLabel = QLabel('End time:')
         self.layout.addWidget(endTimeLabel)
 
-        self.endTime = QDateTimeEdit()
-        date_format = "%Y-%m-%d %H:%M:%S"
-        now = datetime.datetime.strptime(tNow, date_format)
-        self.endTime.setDateTime(now)
+        self.endData = QCalendarWidget()
+        self.layout.addWidget(self.endData)
+
+        self.endTime = QTimeEdit()
+        hour = (int)(datetime.datetime.now().hour)
+        min = (int)(datetime.datetime.now().minute)
+        initial_time = QTime(hour, min)
+        self.endTime.setTime(initial_time)
+
         self.layout.addWidget(self.endTime)
 
         self.layout.addWidget(self.buttonBox)
@@ -47,7 +54,9 @@ class AddNewTaskDialog(QDialog):
 
     def getData(self):
         qdt = self.endTime.dateTime()
-        dt = qdt.toPython()
+        qcal = self.endData.selectedDate()
+        string = qcal.toString("yyyy-MM-dd") + " " + qdt.toString("HH:mm:ss")
+        dt = datetime.datetime.strptime(string, "%Y-%m-%d %H:%M:%S")
         return {"title": self.title.text(), "description": self.description.text(), "endTime": dt}
 
 
@@ -129,7 +138,7 @@ class MainWindow(QMainWindow):
         label.setText(self.timeNow())
 
     def addNewTask(self, tasks):
-        dialog = AddNewTaskDialog(self.timeNow())
+        dialog = AddNewTaskDialog(self.timeNow(), "Add New Task", "", "")
         if dialog.exec():
             t = dialog.getData()["title"]
             d = dialog.getData()["description"]
@@ -202,7 +211,8 @@ class Task(QWidget):
         self.title = str(t)
         self.description = str(d)
 
-        time = QLabel("Start time: " + startT.strftime("%Y-%m-%d %H:%M:%S") + " | End time: " + endT.strftime("%Y-%m-%d %H:%M:%S"))
+        time = QLabel("End time: " + endT.strftime("%Y-%m-%d %H:%M:%S"))
+
         timeFont = QFont()
         timeFont.setItalic(True)
         time.setFont(timeFont)
@@ -210,6 +220,11 @@ class Task(QWidget):
         layout.addWidget(titleLbl)
         layout.addWidget(descriptioLbl)
         layout.addWidget(time)
+
+        editBtn = QPushButton("Edit")
+        editBtn.clicked.connect(self.editTask)
+        editBtn.setFixedSize(100, 25)
+        layout.addWidget(editBtn)
 
         delBtn = QPushButton("Delete")
         delBtn.clicked.connect(self.delFromDb)
@@ -228,8 +243,8 @@ class Task(QWidget):
         bottom.setStyleSheet("background-color: black;")
         layout.addWidget(bottom)
 
-        self.setMaximumHeight(150)
-        self.setMinimumHeight(150)
+        self.setMaximumHeight(160)
+        self.setMinimumHeight(160)
 
         self.setLayout(layout)
 
@@ -238,7 +253,7 @@ class Task(QWidget):
         cursor = conn.cursor()
 
         cursor.execute('''INSERT INTO tasks (title, description, start_time, end_time) values (?, ?, ?, ?)
-        ''', (self.title, self.description, self.startTime, self.endTime))
+        ''', (self.title, self.description, self.startTime.strftime("%Y-%m-%d %H:%M:%S"), self.endTime.strftime("%Y-%m-%d %H:%M:%S")))
 
         conn.commit()
 
@@ -263,6 +278,31 @@ class Task(QWidget):
 
             cursor.close()
             conn.close()
+
+    def editTask(self):
+        dialog = AddNewTaskDialog(self.endTime.strftime("%Y-%m-%d %H:%M:%S"), "Edit Task", self.title, self.description)
+        if dialog.exec():
+            t = dialog.getData()["title"]
+            d = dialog.getData()["description"]
+            end = dialog.getData()['endTime']
+            error = QMessageBox()
+            error.setWindowTitle("Error")
+
+            if (t == ""):
+                error.setText("Title cannot be empty!")
+                error.exec()
+            else:
+                conn = sqlite3.connect('data')
+                cursor = conn.cursor()
+
+                cursor.execute('UPDATE tasks SET title = ?, description = ?, end_time = ? WHERE id = ?', (t,d,end,self.id))
+
+                conn.commit()
+
+                cursor.close()
+                conn.close()
+        else:
+            print('editing task canceled')
 
     def endTask(self):
         if(self.active == 1):
